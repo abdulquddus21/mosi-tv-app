@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "black"
+      "backgroundColor": "#000000"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -21,10 +21,27 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "black"
+        "backgroundColor": "#000000"
       },
-      "package": "com.yourname.mochitv"
+      "package": "com.yourname.mochitv",
+      "versionCode": 1,
+      "enableProguardInReleaseBuilds": false,
+      "enableShrinkResourcesInReleaseBuilds": false
     },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false,
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "34.0.0"
+          }
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "c19d5a2f-0b68-4c0f-b0c8-bc145fac2d46"

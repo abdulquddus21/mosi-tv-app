@@ -8,23 +8,41 @@ import {
   SafeAreaView,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from './supabaseClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Login = ({ navigation }) => {
-  const [mode, setMode] = useState('login'); // 'login' or 'register'
-  const [phone, setPhone] = useState('');
+  const [mode, setMode] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
+    checkAutoLogin();
     requestLocationPermission();
   }, []);
+
+  const checkAutoLogin = async () => {
+    try {
+      const savedUser = await AsyncStorage.getItem('user');
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        navigation.replace('Home', { user });
+      }
+    } catch (error) {
+      console.error('Auto login error:', error);
+    }
+  };
 
   const requestLocationPermission = async () => {
     try {
@@ -80,6 +98,9 @@ const Login = ({ navigation }) => {
         })
         .eq('id', user.id);
 
+      // Save user to AsyncStorage
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+
       navigation.replace('Home', { user });
     } catch (error) {
       console.error('Login error:', error);
@@ -90,13 +111,8 @@ const Login = ({ navigation }) => {
   };
 
   const handleRegister = async () => {
-    if (!phone.trim() || !username.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (!username.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('Xatolik', 'Iltimos, barcha maydonlarni to\'ldiring');
-      return;
-    }
-
-    if (phone.length < 9) {
-      Alert.alert('Xatolik', 'Telefon raqam noto\'g\'ri');
       return;
     }
 
@@ -113,7 +129,6 @@ const Login = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // Check if username exists
       const { data: existingUser } = await supabase
         .from('users')
         .select('*')
@@ -126,12 +141,10 @@ const Login = ({ navigation }) => {
         return;
       }
 
-      // Create new user
       const { data: newUser, error } = await supabase
         .from('users')
         .insert([
           {
-            phone,
             username,
             password,
             latitude: location?.latitude,
@@ -143,6 +156,9 @@ const Login = ({ navigation }) => {
         .single();
 
       if (error) throw error;
+
+      // Save user to AsyncStorage
+      await AsyncStorage.setItem('user', JSON.stringify(newUser));
 
       Alert.alert('Muvaffaqiyat', 'Ro\'yxatdan o\'tdingiz!', [
         {
@@ -162,126 +178,159 @@ const Login = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <Ionicons name="tv" size={64} color="#3B82F6" />
-        </View>
-        
-        <Text style={styles.title}>MochiTV</Text>
-        <Text style={styles.subtitle}>
-          {isLogin ? 'Xush kelibsiz!' : 'Ro\'yxatdan o\'ting'}
-        </Text>
-
-        {location && (
-          <View style={styles.locationContainer}>
-            <Ionicons name="location" size={20} color="#3B82F6" />
-            <View style={styles.locationTextContainer}>
-              <Text style={styles.locationText}>{location.locationName}</Text>
-              <Text style={styles.locationSubtext}>Sizning joylashuvingiz</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, isLogin && styles.tabActive]}
-            onPress={() => setMode('login')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>
-              Kirish
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, !isLogin && styles.tabActive]}
-            onPress={() => setMode('register')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>
-              Ro'yxatdan o'tish
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.formContainer}>
-          {!isLogin && (
-            <View style={styles.inputContainer}>
-              <Ionicons name="call" size={18} color="#6B7280" />
-              <TextInput
-                style={styles.input}
-                placeholder="Telefon raqam"
-                placeholderTextColor="#6B7280"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                maxLength={20}
-              />
-            </View>
-          )}
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="person" size={18} color="#6B7280" />
-            <TextInput
-              style={styles.input}
-              placeholder="Username"
-              placeholderTextColor="#6B7280"
-              value={username}
-              onChangeText={setUsername}
-              maxLength={50}
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed" size={18} color="#6B7280" />
-            <TextInput
-              style={styles.input}
-              placeholder="Parol"
-              placeholderTextColor="#6B7280"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              maxLength={50}
-            />
-          </View>
-
-          {!isLogin && (
-            <View style={styles.inputContainer}>
-              <Ionicons name="shield-checkmark" size={18} color="#6B7280" />
-              <TextInput
-                style={styles.input}
-                placeholder="Parolni takrorlang"
-                placeholderTextColor="#6B7280"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                maxLength={50}
-              />
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={isLogin ? handleLogin : handleRegister}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.buttonText}>
-                {isLogin ? 'Kirish' : 'Ro\'yxatdan o\'tish'}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
+            <View style={styles.headerContainer}>
+              <View style={styles.iconWrapper}>
+                <View style={styles.iconBackground}>
+                  <Ionicons name="tv-outline" size={48} color="#3B82F6" />
+                </View>
+              </View>
+              
+              <Text style={styles.title}>MochiTV</Text>
+              <Text style={styles.subtitle}>
+                {isLogin ? 'Qaytganingizdan xursandmiz' : 'Yangi akkaunt yarating'}
               </Text>
-            )}
-          </TouchableOpacity>
-        </View>
+            </View>
 
-        <Text style={styles.infoText}>
-          {isLogin
-            ? 'Hisobingiz yo\'qmi? Ro\'yxatdan o\'tish tugmasini bosing'
-            : 'Ro\'yxatdan o\'tish orqali siz barcha shartlarga rozilik bildirasiz'}
-        </Text>
-      </View>
+            {location && (
+              <View style={styles.locationContainer}>
+                <View style={styles.locationIcon}>
+                  <Ionicons name="location-sharp" size={16} color="#3B82F6" />
+                </View>
+                <View style={styles.locationTextContainer}>
+                  <Text style={styles.locationText}>{location.locationName}</Text>
+                  <Text style={styles.locationSubtext}>Joriy joylashuv</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tab, isLogin && styles.tabActive]}
+                onPress={() => setMode('login')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>
+                  Kirish
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, !isLogin && styles.tabActive]}
+                onPress={() => setMode('register')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>
+                  Ro'yxatdan o'tish
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formContainer}>
+              <View style={styles.inputWrapper}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="person-outline" size={20} color="#6B7280" />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Username"
+                  placeholderTextColor="#6B7280"
+                  value={username}
+                  onChangeText={setUsername}
+                  maxLength={50}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#6B7280" />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Parol"
+                  placeholderTextColor="#6B7280"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  maxLength={50}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-outline" : "eye-off-outline"} 
+                    size={20} 
+                    color="#6B7280" 
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {!isLogin && (
+                <View style={styles.inputWrapper}>
+                  <View style={styles.inputIconContainer}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" />
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Parolni takrorlang"
+                    placeholderTextColor="#6B7280"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    maxLength={50}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIcon}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Ionicons 
+                      name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
+                      size={20} 
+                      color="#6B7280" 
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={isLogin ? handleLogin : handleRegister}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <View style={styles.buttonContent}>
+                    <Text style={styles.buttonText}>
+                      {isLogin ? 'Kirish' : 'Ro\'yxatdan o\'tish'}
+                    </Text>
+                    <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.infoContainer}>
+              <View style={styles.divider} />
+              <Text style={styles.infoText}>
+                {isLogin
+                  ? 'Akkauntingiz yo\'qmi? Ro\'yxatdan o\'ting'
+                  : 'Ro\'yxatdan o\'tish orqali siz shartlarga rozilik bildirasiz'}
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -289,40 +338,68 @@ const Login = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#000000',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 40,
   },
-  iconContainer: {
+  headerContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 32,
+  },
+  iconWrapper: {
+    marginBottom: 20,
+  },
+  iconBackground: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
   },
   title: {
-    fontSize: 36,
-    fontWeight: 'bold',
+    fontSize: 40,
+    fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#9CA3AF',
     textAlign: 'center',
-    marginBottom: 32,
+    fontWeight: '400',
   },
   locationContainer: {
     flexDirection: 'row',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: 'rgba(59, 130, 246, 0.15)',
+  },
+  locationIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   locationTextContainer: {
     flex: 1,
@@ -340,21 +417,29 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 14,
     padding: 4,
-    marginBottom: 24,
+    marginBottom: 28,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: '#1F1F1F',
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   tabActive: {
     backgroundColor: '#3B82F6',
+    shadowColor: '#3B82F6',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   tabText: {
     color: '#6B7280',
@@ -365,56 +450,80 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   formContainer: {
-    gap: 12,
+    gap: 16,
   },
-  inputContainer: {
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: '#1F1F1F',
+    overflow: 'hidden',
+  },
+  inputIconContainer: {
+    paddingLeft: 16,
+    justifyContent: 'center',
   },
   input: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     fontSize: 15,
     color: '#FFFFFF',
-    marginLeft: 12,
+    fontWeight: '400',
+  },
+  eyeIcon: {
+    paddingRight: 16,
+    paddingLeft: 12,
   },
   button: {
     backgroundColor: '#3B82F6',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
     shadowColor: '#3B82F6',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 8,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
   },
   buttonDisabled: {
     backgroundColor: '#1E40AF',
-    opacity: 0.6,
+    opacity: 0.5,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  infoContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  divider: {
+    height: 1,
+    width: 60,
+    backgroundColor: '#1F1F1F',
+    marginBottom: 20,
   },
   infoText: {
     color: '#6B7280',
-    fontSize: 12,
+    fontSize: 13,
     textAlign: 'center',
-    marginTop: 24,
-    lineHeight: 18,
+    lineHeight: 20,
+    paddingHorizontal: 20,
   },
 });
 
-export default Login;  // ✅ Bu muhim qator!
+export default Login;
