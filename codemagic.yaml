@@ -1,20 +1,10 @@
 workflows:
-  android-release:
-    name: Build Android Release
-    environment:
-      vars:
-        ANDROID_KEYSTORE: Encrypted(...)
-        ANDROID_KEYSTORE_PASSWORD: your_password
-        ANDROID_KEY_ALIAS: your_alias
-        ANDROID_KEY_PASSWORD: your_password
+  build-android:
+    name: Build Android APK
     scripts:
       - name: Install dependencies
-        script: |
-          npm install
-      - name: Build Android AAB
-        script: |
-          npx expo export
-          npx eas build --platform android --profile production --local
+        script: npm install
+      - name: Build debug APK
+        script: ./gradlew assembleDebug
     artifacts:
-      - build/**/*.apk
-      - build/**/*.aab
+      - android/app/build/outputs/**/*.apk
